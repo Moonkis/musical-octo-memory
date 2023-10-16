@@ -26,9 +26,9 @@ namespace octo
             m_HtmlDocument = new HtmlDocument();
         }
 
-        public List<PageInformation> GetChildPages(PageInformation info)
+        public List<LinkInformation> GetChildPages(LinkInformation info)
         {
-            var pages = new List<PageInformation>();
+            var pages = new List<LinkInformation>();
             foreach (var link in m_HtmlDocument.DocumentNode.SelectNodes("//a[@href]"))
             {
                 var href = link.Attributes["href"].Value;
@@ -37,15 +37,15 @@ namespace octo
                     continue;
                 }
 
-                pages.Add(new PageInformation(new Uri(info.Uri, href).AbsoluteUri, info.Depth + 1));
+                pages.Add(new LinkInformation(new Uri(info.Uri, href).AbsoluteUri, info.Depth + 1));
             }
 
             return pages;
         }
 
-        public List<PageInformation> GetStaticResources(PageInformation info)
+        public List<LinkInformation> GetStaticResources(LinkInformation info)
         {
-            var resources = new List<PageInformation>();
+            var resources = new List<LinkInformation>();
 
             foreach (var link in m_HtmlDocument.DocumentNode.SelectNodes("//script[@src] | //img[@src] | //link[@href]"))
             {
@@ -56,7 +56,7 @@ namespace octo
                     continue;
                 }
 
-                resources.Add(new PageInformation(new Uri(info.Uri, val).AbsoluteUri, info.Depth + 1));
+                resources.Add(new LinkInformation(new Uri(info.Uri, val).AbsoluteUri, info.Depth + 1));
             }
 
             return resources;
@@ -93,6 +93,14 @@ namespace octo
 
             try
             {
+                var extension = Path.GetExtension(filePath);
+
+                if (string.IsNullOrEmpty(extension))
+                {
+                    filePath = Path.Combine(filePath, "index.html");
+                }
+
+                Directory.CreateDirectory(Path.GetDirectoryName(filePath));
                 m_HtmlDocument.Save(filePath);
             }
             catch(Exception)

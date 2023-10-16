@@ -8,8 +8,8 @@ namespace octo
 {
     internal interface IHtmlPage
     {
-        public List<PageInformation> GetChildPages(PageInformation info);
-        public List<PageInformation> GetStaticResources(PageInformation info);
+        public List<LinkInformation> GetChildPages(LinkInformation info);
+        public List<LinkInformation> GetStaticResources(LinkInformation info);
         public bool Load(Uri uri);
         public bool Save(string filePath);
     }
