@@ -1,12 +1,11 @@
-﻿using System;
-using System.Collections.Concurrent;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Collections.Concurrent;
 
 namespace octo
 {
+    /*
+     * For transparancy I didn't come up with this on my own.
+     * Source: https://stackoverflow.com/a/77000993
+     */
     public class ConcurrentHashSet<T>
         where T : notnull
     {
