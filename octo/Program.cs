@@ -9,8 +9,9 @@ namespace octo
             var crawler = new WebCrawler(new CrawlerSettings() 
             { 
                 OutputDirectory = ConfigurationManager.AppSettings["OutputDirectory"] ?? string.Empty,
-                MaxDepth = 1,
-            });
+                MaxDepth = int.Parse(ConfigurationManager.AppSettings["MaxDepth"] ?? "0"),
+            },
+            new HtmlPage());
 
             crawler.Crawl(new Uri(ConfigurationManager.AppSettings["Url"] ?? string.Empty));
         }

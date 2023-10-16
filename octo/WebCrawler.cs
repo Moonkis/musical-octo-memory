@@ -49,8 +49,9 @@ namespace octo
 
         private ConcurrentHashSet<PageInformation> m_Processed;
         private ConcurrentQueue<PageInformation> m_QueuedPages;
+        private IHtmlPage m_HtmlPage;
 
-        public WebCrawler(CrawlerSettings settings) 
+        public WebCrawler(CrawlerSettings settings, IHtmlPage htmlPage) 
         {
             if (string.IsNullOrEmpty(settings.OutputDirectory))
             {
@@ -61,6 +62,7 @@ namespace octo
             m_Settings = settings;
             m_Processed = new ConcurrentHashSet<PageInformation>();
             m_QueuedPages = new ConcurrentQueue<PageInformation>();
+            m_HtmlPage = htmlPage;
         }
 
         public void Crawl(Uri uri)
@@ -70,7 +72,6 @@ namespace octo
                 throw new ArgumentException($"{nameof(uri)} is incorrectly formed.");
             }
 
-            HtmlWeb html = new HtmlWeb();
             m_QueuedPages.Enqueue(new PageInformation(uri.OriginalString, 0));
             
             while(!m_QueuedPages.IsEmpty)
@@ -80,7 +81,7 @@ namespace octo
                     continue;
                 }
 
-                var document = html.Load(pageInfo.Uri);
+                m_HtmlPage.Load(pageInfo.Uri);
                 m_Processed.Add(pageInfo);
 
                 var localPath = GetLocalPath(pageInfo.Uri);
@@ -92,9 +93,9 @@ namespace octo
                 }
 
                 Directory.CreateDirectory(Path.GetDirectoryName(localPath));
-                document.Save(localPath);
+                m_HtmlPage.Save(localPath);
 
-                var pages = GetChildPages(document, pageInfo);
+                var pages = m_HtmlPage.GetChildPages(pageInfo);
 
                 foreach (var page in pages)
                 {
@@ -111,23 +112,6 @@ namespace octo
         private string GetLocalPath(Uri uri)
         {
             return $"{m_Settings.OutputDirectory}/{uri.Host}{uri.AbsolutePath}";
-        }
-
-        private List<PageInformation> GetChildPages(HtmlDocument document, PageInformation currentPage)
-        {
-            var pages = new List<PageInformation>();
-            foreach (var link in document.DocumentNode.SelectNodes("//a[@href]"))
-            {
-                var href = link.Attributes["href"].Value;
-                if (string.IsNullOrEmpty(href))
-                {
-                    continue;
-                }
-
-                pages.Add(new PageInformation(new Uri(currentPage.Uri, href).AbsoluteUri, currentPage.Depth + 1));
-            }
-
-            return pages;
         }
     }
 }
