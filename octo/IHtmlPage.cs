@@ -10,7 +10,7 @@ namespace octo
     {
         public List<PageInformation> GetChildPages();
         public List<PageInformation> GetStaticResources();
-        public string Load(Uri uri);
+        public bool Load(Uri uri);
         public bool Save(string filePath);
     }
 }
