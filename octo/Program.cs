@@ -4,7 +4,7 @@ namespace octo
 {
     internal class Program
     {
-        static void Main(string[] args)
+        static async Task Main(string[] args)
         {
             var crawler = new WebCrawler(new CrawlerSettings() 
             { 
@@ -13,7 +13,7 @@ namespace octo
             },
             new HtmlPage());
 
-            crawler.Crawl(new Uri(ConfigurationManager.AppSettings["Url"] ?? string.Empty));
+            await crawler.AsyncCrawl(new Uri(ConfigurationManager.AppSettings["Url"] ?? string.Empty));
         }
     }
 }

@@ -3,6 +3,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net.Http;
 using System.Runtime.CompilerServices;
 using System.Security.Policy;
 using System.Text;
@@ -50,6 +51,7 @@ namespace octo
         private ConcurrentHashSet<PageInformation> m_Processed;
         private ConcurrentQueue<PageInformation> m_QueuedPages;
         private IHtmlPage m_HtmlPage;
+        private HttpClient m_HttpClient;
 
         public WebCrawler(CrawlerSettings settings, IHtmlPage htmlPage) 
         {
@@ -58,23 +60,24 @@ namespace octo
                 _ = settings.OutputDirectory ?? throw new ArgumentNullException(nameof(settings.OutputDirectory));
                 throw new ArgumentException($"{nameof(settings.OutputDirectory)} can't be empty.");
             }
-
+            m_HttpClient = new HttpClient();
             m_Settings = settings;
             m_Processed = new ConcurrentHashSet<PageInformation>();
             m_QueuedPages = new ConcurrentQueue<PageInformation>();
             m_HtmlPage = htmlPage;
         }
 
-        public void Crawl(Uri uri)
+        public async Task AsyncCrawl(Uri uri)
         {
             if (!Uri.IsWellFormedUriString(uri.OriginalString, UriKind.Absolute))
             {
                 throw new ArgumentException($"{nameof(uri)} is incorrectly formed.");
             }
 
-            m_QueuedPages.Enqueue(new PageInformation(uri.OriginalString, 0));
             
-            while(!m_QueuedPages.IsEmpty)
+            m_QueuedPages.Enqueue(new PageInformation(uri.OriginalString, 0));
+
+            while (!m_QueuedPages.IsEmpty)
             {
                 if (m_QueuedPages.TryDequeue(out var pageInfo) && pageInfo.Depth > m_Settings.MaxDepth && !m_Processed.Contains(pageInfo))
                 {
@@ -95,7 +98,19 @@ namespace octo
                 Directory.CreateDirectory(Path.GetDirectoryName(localPath));
                 m_HtmlPage.Save(localPath);
 
+                var resources = m_HtmlPage.GetStaticResources(pageInfo);
                 var pages = m_HtmlPage.GetChildPages(pageInfo);
+
+                foreach(var resource in resources)
+                {
+                    if (m_Processed.Contains(resource))
+                    {
+                        continue;
+                    }
+
+                    m_Processed.Add(resource);
+                    await Download(resource);
+                }
 
                 foreach (var page in pages)
                 {
@@ -112,6 +127,16 @@ namespace octo
         private string GetLocalPath(Uri uri)
         {
             return $"{m_Settings.OutputDirectory}/{uri.Host}{uri.AbsolutePath}";
+        }
+
+        private async Task Download(PageInformation info)
+        {
+            var result = await m_HttpClient.GetAsync(info.Uri.OriginalString);
+            var stream = await result.Content.ReadAsStreamAsync();
+            var path = GetLocalPath(info.Uri);
+            Directory.CreateDirectory(Path.GetDirectoryName(path));
+            using var fileStream = new FileStream(path, FileMode.Create);
+            await stream.CopyToAsync(fileStream);
         }
     }
 }
