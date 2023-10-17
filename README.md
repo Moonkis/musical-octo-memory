@@ -1,6 +1,10 @@
 # musical-octo-memory (octo)
 A webpage mirrorer for offline browsing.
 
+The components are intentially kept small in size (and scope). Some classes can't be mocked easily (HttpClient, HtmlWeb) and relies on dependency injections using wrappers on the classes that would normally make it hard to write tests.
+
+Abstractions are used when they give larger benefits but the hierarchy of abstractions is kept relativly flat overall. I tried to not overcomplicate the solution so that refactoring further is kept open and lightweight if needs/requirements changes.
+
 # Getting Started
 
 ## Requirements
