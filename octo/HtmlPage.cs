@@ -100,7 +100,12 @@ namespace octo
                     filePath = Path.Combine(filePath, "index.html");
                 }
 
-                Directory.CreateDirectory(Path.GetDirectoryName(filePath));
+                var directory = Path.GetDirectoryName(filePath);
+                if (string.IsNullOrEmpty(directory))
+                {
+                    return false;
+                }
+                Directory.CreateDirectory(directory);
                 m_HtmlDocument.Save(filePath);
             }
             catch(Exception)

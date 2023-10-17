@@ -28,9 +28,13 @@ namespace octo
                 using HttpResponseMessage response = await m_HttpClient.GetAsync(page.info.Uri, cancellationToken);
                 if (response.IsSuccessStatusCode)
                 {
-                    Directory.CreateDirectory(Path.GetDirectoryName(page.outputPath));
-                    using FileStream fileStream = new FileStream(page.outputPath, FileMode.Create);
-                    await response.Content.CopyToAsync(fileStream);
+                    var directory = Path.GetDirectoryName(page.outputPath);
+                    if (!string.IsNullOrEmpty(directory))
+                    {
+                        Directory.CreateDirectory(directory);
+                        using FileStream fileStream = new FileStream(page.outputPath, FileMode.Create);
+                        await response.Content.CopyToAsync(fileStream);
+                    }
                 }
             });
         }

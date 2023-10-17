@@ -15,15 +15,15 @@ namespace octo
     {
         private static readonly LinkInformationComparer linkInformationComparer = new LinkInformationComparer();
 
-        public event EventHandler<(int TotalProcessed, int TotalQueued)> ProgressUpdated;
+        public event EventHandler<(int TotalProcessed, int TotalQueued)>? ProgressUpdated;
 
         private CrawlerSettings m_Settings;
         private HashSet<LinkInformation> m_Processed;
-        private Queue<LinkInformation> m_QueuedPages;
-        private IHtmlPage m_HtmlPage;
+        private HashSet<LinkInformation> m_QueuedPages;
+        private IPageScraper m_PageScraper;
         private IResourceDownloader m_ResourceDownloader;
 
-        public WebCrawler(CrawlerSettings settings, IHtmlPage htmlPage, IResourceDownloader resourceDownloader) 
+        public WebCrawler(CrawlerSettings settings, IPageScraper pageScraper, IResourceDownloader resourceDownloader) 
         {
             if (string.IsNullOrEmpty(settings.OutputDirectory))
             {
@@ -33,8 +33,8 @@ namespace octo
 
             m_Settings = settings;
             m_Processed = new HashSet<LinkInformation>(linkInformationComparer);
-            m_QueuedPages = new Queue<LinkInformation>();
-            m_HtmlPage = htmlPage;
+            m_QueuedPages = new HashSet<LinkInformation>(linkInformationComparer);
+            m_PageScraper = pageScraper;
             m_ResourceDownloader = resourceDownloader;
         }
 
@@ -45,34 +45,12 @@ namespace octo
                 throw new ArgumentException($"{nameof(uri)} is incorrectly formed.");
             }
 
-            m_QueuedPages.Enqueue(new LinkInformation(uri.OriginalString, 0));
+            m_QueuedPages.Add(new LinkInformation(uri.OriginalString, 0));
 
             while (m_QueuedPages.Any())
             {
-                if (m_QueuedPages.TryDequeue(out var pageInfo) && (m_Settings.MaxDepth != -1 && pageInfo.Depth > m_Settings.MaxDepth) && !m_Processed.Contains(pageInfo))
-                {
-                    continue;
-                }
-
-                m_HtmlPage.Load(pageInfo.Uri);
-                m_Processed.Add(pageInfo);
-                m_HtmlPage.Save(GetLocalPath(pageInfo.Uri));
-
-                var resources = m_HtmlPage.GetStaticResources(pageInfo);
-                var pages = m_HtmlPage.GetChildPages(pageInfo);
-
-                await ProcessResources(resources);
-
-                foreach (var page in pages)
-                {
-                    if (m_Processed.Contains(page) || m_QueuedPages.Contains(page, linkInformationComparer))
-                    {
-                        continue;
-                    }
-
-                    m_QueuedPages.Enqueue(page);
-                }
-
+                var result = ProcessPages();
+                await ProcessResources(result.Resources);
                 ProgressUpdated?.Invoke(this, (m_Processed.Count, m_QueuedPages.Count));
             }
         }
@@ -82,22 +60,40 @@ namespace octo
 
         private async Task ProcessResources(IEnumerable<LinkInformation> resources)
         {
-            foreach (var chunk in resources.Chunk(m_ResourceDownloader.MaxConcurrent))
+            var filtered = new List<LinkInformation>();
+            foreach(var resource in resources)
             {
-                var filtered = new List<LinkInformation>(chunk.Length);
-                foreach (var resource in chunk)
+                if (m_Processed.Contains(resource))
                 {
-                    if (m_Processed.Contains(resource))
-                    {
-                        continue;
-                    }
-
-                    m_Processed.Add(resource);
-                    filtered.Add(resource);
+                    continue;
                 }
 
-                await m_ResourceDownloader.DownloadAll(filtered.Select(x => (x, GetLocalPath(x.Uri))));
+                m_Processed.Add(resource);
+                filtered.Add(resource);
             }
+
+            await m_ResourceDownloader.DownloadAll(filtered.Select(x => (x, GetLocalPath(x.Uri))));
+        }
+
+        private PageResult ProcessPages()
+        {
+            m_Processed.UnionWith(m_QueuedPages);
+            var result = m_PageScraper.VisitAllPages(m_QueuedPages.Select(x => (x, GetLocalPath(x.Uri))));
+
+            m_QueuedPages.Clear();
+            foreach (var child in result.ChildPages)
+            {
+                if (m_Processed.Contains(child) || 
+                    m_QueuedPages.Contains(child) || 
+                    (m_Settings.MaxDepth != -1 && child.Depth > m_Settings.MaxDepth))
+                {
+                    continue;
+                }
+
+                m_QueuedPages.Add(child);
+            }
+
+            return result;
         }
     }
 }
